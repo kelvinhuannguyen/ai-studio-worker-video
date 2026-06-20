@@ -10,17 +10,21 @@
 #
 # wget -c = nối lại nếu rớt mạng. File to (13–17GB) nên để chạy nền: `tmux` hoặc `nohup`.
 
-set -e
+set -u
 MODELS="${MODELS:-/workspace/models}"   # đổi sang /runpod-volume/models nếu chạy ở chỗ khác
 DIFF="$MODELS/diffusion_models"
 VAE="$MODELS/vae"
 TENC="$MODELS/text_encoders"
 mkdir -p "$DIFF" "$VAE" "$TENC"
+FAILED=""
 
-dl () { # dl <url> <dest_path>
-  if [ -f "$2" ]; then echo "✓ đã có: $(basename "$2")"; return; fi
+dl () { # dl <url> <dest_path> — wget -c: resume nếu dở, "nothing to do" nếu đã đủ size
   echo "⬇  $(basename "$2")"
-  wget -c -q --show-progress -O "$2" "$1"
+  if wget -c --tries=10 --retry-connrefused --waitretry=15 --timeout=60 -q --show-progress -O "$2" "$1"; then
+    echo "   ✓ $(du -h "$2" 2>/dev/null | cut -f1)"
+  else
+    echo "   ✗ LỖI tải: $1"; FAILED="$FAILED $(basename "$2")"
+  fi
 }
 
 HF=https://huggingface.co
@@ -63,7 +67,6 @@ if [ "$1" = "all" ]; then
 fi
 
 echo ""
-echo "✅ Xong. Kiểm tra dung lượng:"
-du -sh "$DIFF" "$VAE" "$TENC" 2>/dev/null || true
-echo "Tổng quan model đã tải:"
-ls -lh "$DIFF" "$VAE" "$TENC"
+if [ -n "$FAILED" ]; then echo "⚠ Lỗi tải:$FAILED — chạy lại script để resume."; else echo "✅ Tất cả OK."; fi
+echo "Dung lượng:"; du -sh "$DIFF" "$VAE" "$TENC" 2>/dev/null || true
+echo "Model đã tải:"; ls -lh "$DIFF" "$VAE" "$TENC"
