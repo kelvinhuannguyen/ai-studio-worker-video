@@ -26,3 +26,8 @@ RUN cd /comfyui/custom_nodes \
 RUN for f in diffusion_models text_encoders; do \
       rm -rf /comfyui/models/$f && ln -s /runpod-volume/models/$f /comfyui/models/$f; \
     done
+
+# worker-comfyui only returns "images" by default → VHS video (under "gifs"/"videos") is dropped.
+# Patch the handler so video outputs come back too (see patch_handler.py).
+COPY patch_handler.py /patch_handler.py
+RUN python3 /patch_handler.py
