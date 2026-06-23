@@ -8,11 +8,13 @@
 # Fix: right before the existing image-processing loop, merge any "gifs"/"videos" items into the
 # "images" list. They share the same shape ({filename, subfolder, type}), so the MP4 then gets
 # base64-returned (or S3-uploaded if BUCKET_ENDPOINT_URL is set) exactly like an image. The app
-# (lib/video/runpodVideo.ts mapWorkerVideo) already recognises a .mp4 filename and re-hosts to R2.
-import glob
+# (lib/video/runpodVideo.ts mapWorkerVideo) recognises a .mp4 filename and re-hosts to R2.
+#
+# NOTE: handler.py is ADDed to / in runpod/worker-comfyui (Dockerfile: WORKDIR /; ADD ... handler.py ./).
+# Use FIXED candidate paths — do NOT recursive-glob the filesystem (that OOM-killed the build).
 import sys
 
-candidates = ["/handler.py"] + glob.glob("/**/handler.py", recursive=True)
+candidates = ["/handler.py", "/src/handler.py", "/app/handler.py", "/comfyui/handler.py"]
 target = None
 for p in candidates:
     try:
@@ -43,6 +45,5 @@ if needle not in s:
     print(f"PATCH WARNING: anchor not found in {target} — handler layout changed?")
     sys.exit(0)
 
-s = s.replace(needle, inject, 1)
-open(target, "w", encoding="utf-8").write(s)
+open(target, "w", encoding="utf-8").write(s.replace(needle, inject, 1))
 print(f"PATCH: applied video-output support to {target}")
